@@ -1,3 +1,8 @@
+PatientLevelPredictionValidationModule 0.0.4
+=======================
+- adding tests
+- making module Strategus compliant 
+
 PatientLevelPredictionValidationModule 0.0.1
 =======================
 

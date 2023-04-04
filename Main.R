@@ -113,7 +113,9 @@ execute <- function(jobContext) {
   modelTransferFolder <- sort(dir(upperWorkDir, pattern = 'ModelTransferModule'), decreasing = T)[1]
   
   modelSaveLocation <- file.path( upperWorkDir, modelTransferFolder, 'models') # hack to use work folder for model transfer 
-  modelLocationList <- file.path(modelSaveLocation, jobContext$settings$modelLocationList)
+  
+  ParallelLogger::logInfo('Found these models:', paste0(dir(modelSaveLocation), collapse = ', '))
+  modelLocationList <- file.path(modelSaveLocation, dir(modelSaveLocation))
 
   databaseNames <- c()
   modelInd <- 0
@@ -138,11 +140,12 @@ execute <- function(jobContext) {
       
       # create the database details:
       databaseDetails <- list()
-      for(ddind in 1:max(1, length(jobContext$settings$validationComponentsList[[modelInd]]$targetId))){
+      for(ddind in 1:length(jobContext$settings)){
 
-        tid <- jobContext$settings$validationComponentsList[[modelInd]]$targetId[ddind]
-        oid <- jobContext$settings$validationComponentsList[[modelInd]]$outcomeId[ddind]
+        tid <- jobContext$settings[[ddind]]$targetId
+        oid <- jobContext$settings[[ddind]]$outcomeId
         
+        # why not just use database name?
         databaseNames <- c(databaseNames, paste0(jobContext$moduleExecutionSettings$connectionDetailsReference,'_T',tid,'_O',oid ))
 
           databaseDetails[[ddind]] <- PatientLevelPrediction::createDatabaseDetails(
@@ -155,16 +158,23 @@ execute <- function(jobContext) {
             cohortTable = jobContext$moduleExecutionSettings$cohortTableNames$cohortTable, 
             outcomeDatabaseSchema = jobContext$moduleExecutionSettings$workDatabaseSchema, 
             outcomeTable = jobContext$moduleExecutionSettings$cohortTableNames$cohortTable, 
-            targetId = tid, # could make this a list
-            outcomeIds = oid # could make this a list
+            targetId = tid,
+            outcomeIds = oid
           )
         }
+      
+      if(!is.null(jobContext$settings[[ddind]]$populationSettings)){
+        ParallelLogger::logInfo('Updating population settings')
+        plpModel$modelDesign$populationSettings <- jobContext$settings[[ddind]]$populationSettings
+      } else{
+        ParallelLogger::logInfo('Using model population settings')
+      }
       
       PatientLevelPrediction::externalValidateDbPlp(
         plpModel = plpModel, 
         validationDatabaseDetails = databaseDetails, 
-        validationRestrictPlpDataSettings = jobContext$settings$restrictPlpDataSettings[[modelInd]], 
-        settings = jobContext$settings$validationSettings[[modelInd]], 
+        validationRestrictPlpDataSettings = jobContext$settings[[ddind]]$restrictPlpDataSettings, 
+        settings = jobContext$settings[[ddind]]$validationSettings, 
         #logSettings = , 
         outputFolder = workFolder
       )
@@ -207,7 +217,7 @@ execute <- function(jobContext) {
       targetDialect = 'sqlite', 
       tempEmulationSchema = NULL
     ), 
-    csvFolder = file.path(workFolder, 'results'),
+    csvFolder = resultsFolder,
     fileAppend = NULL
   )
   
