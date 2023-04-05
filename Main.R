@@ -17,7 +17,7 @@
 
 # function to enable simple GLM to be validated using PLP
 predictGLM <- function(plpModel, data, cohort){
-  
+  require('dplyr')
   start <- Sys.time()
   
   ParallelLogger::logTrace('predictProbabilities using predictGLM')
@@ -25,8 +25,8 @@ predictGLM <- function(plpModel, data, cohort){
   data$covariateData$coefficients <- plpModel$model$coefficients
   on.exit(data$covariateData$coefficients <- NULL)
   
-  prediction <- data$covariateData$covariates %>% 
-    dplyr::inner_join(data$covariateData$coefficients, by= 'covariateId') %>% 
+  prediction <- data$covariateData$covariates %>%
+    dplyr::inner_join(data$covariateData$coefficients, by= 'covariateId') %>%
     dplyr::mutate(values = .data$covariateValue*.data$coefficient) %>%
     dplyr::group_by(.data$rowId) %>%
     dplyr::summarise(value = sum(.data$values, na.rm = TRUE)) %>%
