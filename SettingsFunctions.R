@@ -25,13 +25,9 @@ createPatientLevelPredictionValidationModuleSpecifications <- function(
     )
 ) {
   
-  if(length(modelLocationList) != length(validationComponentsList)){
-    stop('modelLocationList and validationComponentsList must be same length')
-  }
-  
   specifications <- list(
     module = "PatientLevelPredictionValidationModule",
-    version = "0.0.4",
+    version = "0.0.5",
     remoteRepo = "github.com",
     remoteUsername = "ohdsi",
     settings = validationComponentsList

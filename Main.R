@@ -14,6 +14,45 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+# function to enable simple GLM to be validated using PLP
+predictGLM <- function(plpModel, data, cohort){
+  
+  start <- Sys.time()
+  
+  ParallelLogger::logTrace('predictProbabilities using predictGLM')
+  
+  data$covariateData$coefficients <- plpModel$model$coefficients
+  on.exit(data$covariateData$coefficients <- NULL)
+  
+  prediction <- data$covariateData$covariates %>% 
+    dplyr::inner_join(data$covariateData$coefficients, by= 'covariateId') %>% 
+    dplyr::mutate(values = .data$covariateValue*.data$coefficient) %>%
+    dplyr::group_by(.data$rowId) %>%
+    dplyr::summarise(value = sum(.data$values, na.rm = TRUE)) %>%
+    dplyr::select("rowId", "value")
+  
+  prediction <- as.data.frame(prediction)
+  prediction <- merge(cohort, prediction, by ="rowId", all.x = TRUE, fill = 0)
+  prediction$value[is.na(prediction$value)] <- 0
+  prediction$value <- prediction$value + plpModel$model$intercept
+  
+  # linear/logistic/square/exponential
+  if(plpModel$model$finalMapping == 'linear'){
+    prediction$value <- prediction$value
+  } else if(plpModel$model$finalMapping == 'logistic'){
+    prediction$value <- 1/(1+exp(-prediction$value))
+  } else if(plpModel$model$finalMapping == 'square'){
+    prediction$value <- prediction$value^2
+  } else if(plpModel$model$finalMapping == 'exponential'){
+    prediction$value <- exp(prediction$value)
+  }
+  
+  delta <- Sys.time() - start
+  ParallelLogger::logInfo("Prediction took ", signif(delta, 3), " ", attr(delta, "units"))
+  return(prediction)
+}
+
 # Module methods -------------------------
 getModuleInfo <- function() {
   checkmate::assert_file_exists("MetaData.json")
