@@ -48,6 +48,8 @@ predictGLM <- function(plpModel, data, cohort){
     prediction$value <- exp(prediction$value)
   }
   
+  attr(prediction, "metaData")$modelType <- "binary"
+  
   delta <- Sys.time() - start
   ParallelLogger::logInfo("Prediction took ", signif(delta, 3), " ", attr(delta, "units"))
   return(prediction)

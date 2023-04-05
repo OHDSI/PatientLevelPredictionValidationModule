@@ -1,6 +1,6 @@
 {
   "Name": "PatientLevelPredictionValidationModule",
-  "Version": "0.0.7",
+  "Version": "0.0.8",
   "Dependencies": ["CohortGeneratorModule", "ModelTransferModule"],
   "TablePrefix": "val_"
 }
