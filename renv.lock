@@ -736,9 +736,10 @@
     },
     "renv": {
       "Package": "renv",
-      "Version": "0.16.0",
-      "Source": "Repository",
-      "Requirements": []
+      "Version": "1.0.3",
+      "OS_type": null,
+      "Repository": "CRAN",
+      "Source": "Repository"
     },
     "reticulate": {
       "Package": "reticulate",
