@@ -160,68 +160,81 @@ execute <- function(jobContext) {
 
   databaseNames <- c()
   modelInd <- 0
-  for(modelLocation in modelLocationList){   
+  for(modelLocation in modelLocationList){
     modelInd <- modelInd + 1
-    plpModel <- tryCatch(
-      {PatientLevelPrediction::loadPlpModel(modelLocation)},
+    
+    # ensure model is not a deep learning model
+    modelAttributes <- tryCatch(
+      {jsonlite::fromJSON(file.path(modelLocation, "attributes.json"))},
       error = function(e){ParallelLogger::logInfo(e); return(NULL)}
     )
-    if(!is.null(plpModel)){
-
-      # append model ind to ensure analysis id is unique
-      plpModel$trainDetails$analysisId <- paste0(plpModel$trainDetails$analysisId, '_', modelInd)
-   
-      # update the plpModel cohort covariates to replace the schema and cohortTable
-      # cohortDatabaseSchema, cohortTable
-      plpModel <- updateCovariates(
-        plpModel = plpModel,
-        cohortTable = jobContext$moduleExecutionSettings$cohortTableNames$cohortTable, 
-        cohortDatabaseSchema = jobContext$moduleExecutionSettings$workDatabaseSchema
-        )
-      
-      # create the database details:
-      databaseDetails <- list()
-      for(ddind in 1:length(jobContext$settings)){
-
-        tid <- jobContext$settings[[ddind]]$targetId
-        oid <- jobContext$settings[[ddind]]$outcomeId
+    
+    if (!is.null(modelAttributes)) {
+      if (modelAttributes$predictionFunction != "predictDeepEstimator") {
         
-        # why not just use database name?
-        databaseNames <- c(databaseNames, paste0(jobContext$moduleExecutionSettings$connectionDetailsReference,'_T',tid,'_O',oid ))
-
-          databaseDetails[[ddind]] <- PatientLevelPrediction::createDatabaseDetails(
-            connectionDetails = jobContext$moduleExecutionSettings$connectionDetails, 
-            cdmDatabaseSchema = jobContext$moduleExecutionSettings$cdmDatabaseSchema,
-            cohortDatabaseSchema = jobContext$moduleExecutionSettings$workDatabaseSchema,
-            cdmDatabaseName = paste0(jobContext$moduleExecutionSettings$connectionDetailsReference,'_T',tid,'_O',oid ),
-            cdmDatabaseId = jobContext$moduleExecutionSettings$databaseId,
-            #tempEmulationSchema =  , is there s temp schema specified anywhere?
+        plpModel <- tryCatch(
+          {PatientLevelPrediction::loadPlpModel(modelLocation)},
+          error = function(e){ParallelLogger::logInfo(e); return(NULL)}
+        )
+        
+        if(!is.null(plpModel)){
+          
+          # append model ind to ensure analysis id is unique
+          plpModel$trainDetails$analysisId <- paste0(plpModel$trainDetails$analysisId, '_', modelInd)
+          
+          # update the plpModel cohort covariates to replace the schema and cohortTable
+          # cohortDatabaseSchema, cohortTable
+          plpModel <- updateCovariates(
+            plpModel = plpModel,
             cohortTable = jobContext$moduleExecutionSettings$cohortTableNames$cohortTable, 
-            outcomeDatabaseSchema = jobContext$moduleExecutionSettings$workDatabaseSchema, 
-            outcomeTable = jobContext$moduleExecutionSettings$cohortTableNames$cohortTable, 
-            targetId = tid,
-            outcomeIds = oid
+            cohortDatabaseSchema = jobContext$moduleExecutionSettings$workDatabaseSchema
           )
+          
+          # create the database details:
+          databaseDetails <- list()
+          for(ddind in 1:length(jobContext$settings)){
+            
+            tid <- jobContext$settings[[ddind]]$targetId
+            oid <- jobContext$settings[[ddind]]$outcomeId
+            
+            # why not just use database name?
+            databaseNames <- c(databaseNames, paste0(jobContext$moduleExecutionSettings$connectionDetailsReference,'_T',tid,'_O',oid ))
+            
+            databaseDetails[[ddind]] <- PatientLevelPrediction::createDatabaseDetails(
+              connectionDetails = jobContext$moduleExecutionSettings$connectionDetails, 
+              cdmDatabaseSchema = jobContext$moduleExecutionSettings$cdmDatabaseSchema,
+              cohortDatabaseSchema = jobContext$moduleExecutionSettings$workDatabaseSchema,
+              cdmDatabaseName = paste0(jobContext$moduleExecutionSettings$connectionDetailsReference,'_T',tid,'_O',oid ),
+              cdmDatabaseId = jobContext$moduleExecutionSettings$databaseId,
+              #tempEmulationSchema =  , is there s temp schema specified anywhere?
+              cohortTable = jobContext$moduleExecutionSettings$cohortTableNames$cohortTable, 
+              outcomeDatabaseSchema = jobContext$moduleExecutionSettings$workDatabaseSchema, 
+              outcomeTable = jobContext$moduleExecutionSettings$cohortTableNames$cohortTable, 
+              targetId = tid,
+              outcomeIds = oid
+            )
+          }
+          
+          if(!is.null(jobContext$settings[[ddind]]$populationSettings)){
+            ParallelLogger::logInfo('Updating population settings')
+            plpModel$modelDesign$populationSettings <- jobContext$settings[[ddind]]$populationSettings
+          } else{
+            ParallelLogger::logInfo('Using model population settings')
+          }
+          
+          PatientLevelPrediction::externalValidateDbPlp(
+            plpModel = plpModel, 
+            validationDatabaseDetails = databaseDetails, 
+            validationRestrictPlpDataSettings = jobContext$settings[[ddind]]$restrictPlpDataSettings, 
+            settings = jobContext$settings[[ddind]]$validationSettings, 
+            #logSettings = , 
+            outputFolder = workFolder
+          )
+          
+        } else{
+          ParallelLogger::logInfo(paste0('Issue loading model at ', modelLocation))
         }
-      
-      if(!is.null(jobContext$settings[[ddind]]$populationSettings)){
-        ParallelLogger::logInfo('Updating population settings')
-        plpModel$modelDesign$populationSettings <- jobContext$settings[[ddind]]$populationSettings
-      } else{
-        ParallelLogger::logInfo('Using model population settings')
       }
-      
-      PatientLevelPrediction::externalValidateDbPlp(
-        plpModel = plpModel, 
-        validationDatabaseDetails = databaseDetails, 
-        validationRestrictPlpDataSettings = jobContext$settings[[ddind]]$restrictPlpDataSettings, 
-        settings = jobContext$settings[[ddind]]$validationSettings, 
-        #logSettings = , 
-        outputFolder = workFolder
-      )
-
-    } else{
-      ParallelLogger::logInfo(paste0('Issue loading model at ', modelLocation))
     }
   }
   
