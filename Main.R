@@ -1,4 +1,4 @@
-# Copyright 2022 Observational Health Data Sciences and Informatics
+# Copyright 2023 Observational Health Data Sciences and Informatics
 #
 # This file is part of "PatientLevelPredictionValidationModule
 #
@@ -59,6 +59,57 @@ predictGLM <- function(plpModel, data, cohort){
 getModuleInfo <- function() {
   checkmate::assert_file_exists("MetaData.json")
   return(ParallelLogger::loadSettingsFromJson("MetaData.json"))
+}
+
+getModelInfo <- function(strategusOutputPath) {
+  
+  combinedData <- NULL
+  subdirs <- list.files(strategusOutputPath, full.names = TRUE)
+  
+  for (dir in subdirs) {
+    folder <- basename(dir)
+    print(basename(folder))
+    
+    allFiles <- list.files(dir, pattern = "models.csv", full.names = TRUE, recursive = TRUE)
+    
+    for(modelFilePath in allFiles) {
+      directoryPath <- dirname(modelFilePath)
+      databaseDetailsPath <- file.path(directoryPath, "database_details.csv")
+      databaseMetaDataPath <- file.path(directoryPath, "database_meta_data.csv")
+      modelDesign <- file.path(directoryPath, "model_designs.csv")
+      cohorts <- file.path(directoryPath, "cohorts.csv")
+      
+      modelData <- read.csv(modelFilePath)
+      databaseDetails <- read.csv(databaseDetailsPath)
+      databaseMetaData <- read.csv(databaseMetaDataPath)
+      modelDesign <- read.csv(modelDesign)
+      cohorts <- read.csv(cohorts)
+      
+      modelData$plp_model_file <- file.path(directoryPath, "models", basename(modelData$plp_model_file))
+      
+      enrichedData <- merge(modelData, databaseDetails, by = "database_id")
+      finalModelData <- merge(enrichedData, databaseMetaData, by.y = "database_id", by.x = "database_meta_data_id")
+      finalModelData <- merge(finalModelData, modelDesign, by = "model_design_id")
+      finalModelData <- merge(finalModelData, cohorts, by.x = "outcome_id", by.y = "cohort_id")
+      finalModelData <- within(finalModelData, {
+        outcome_id <- cohort_definition_id
+      })
+      finalModelData$cohort_definition_id <- NULL
+      
+      finalModelData <- merge(finalModelData, cohorts, by.x = "target_id", by.y = "cohort_id")
+      finalModelData <- within(finalModelData, {
+        target_id <- cohort_definition_id
+      })
+      
+      if(is.null(combinedData)) {
+        combinedData <- finalModelData
+      } else {
+        combinedData <- rbind(combinedData, finalModelData)
+      }
+    }
+  }
+  finalSelectedData <- combinedData %>%
+    select(cdm_source_abbreviation, analysis_id, model_design_id, model_type, target_id, outcome_id, plp_model_file)
 }
 
 getSharedResourceByClassName <- function(sharedResources, className) {
@@ -124,9 +175,10 @@ createCohortDefinitionSetFromJobContext <- function(sharedResources, settings) {
 
 # Module methods -------------------------
 execute <- function(jobContext) {
+  library(PatientLevelPrediction)
   rlang::inform("Validating inputs")
   inherits(jobContext, 'list')
-
+  
   if (is.null(jobContext$settings)) {
     stop("Analysis settings not found in job context")
   }
@@ -142,127 +194,76 @@ execute <- function(jobContext) {
   
   rlang::inform("Executing PLP Validation")
   moduleInfo <- getModuleInfo()
-
+  
   # find where cohortDefinitions are as sharedResources is a list
   cohortDefinitionSet <- createCohortDefinitionSetFromJobContext(
     sharedResources = jobContext$sharedResources,
     settings = jobContext$settings
-    )
+  )
   
   # check the model locations are valid and apply model
   upperWorkDir <- dirname(workFolder)
   modelTransferFolder <- sort(dir(upperWorkDir, pattern = 'ModelTransferModule'), decreasing = T)[1]
   
   modelSaveLocation <- file.path( upperWorkDir, modelTransferFolder, 'models') # hack to use work folder for model transfer 
+  modelInfo <- getModelInfo(modelSaveLocation)
   
-  ParallelLogger::logInfo('Found these models:', paste0(dir(modelSaveLocation), collapse = ', '))
-  modelLocationList <- file.path(modelSaveLocation, dir(modelSaveLocation))
-
-  databaseNames <- c()
-  modelInd <- 0
-  for(modelLocation in modelLocationList){
-    modelInd <- modelInd + 1
+  
+  groupedModelInfo <- modelInfo %>%
+    filter(!(model_type %in% c("ResNet", "Transformer"))) %>%
+    group_by(target_id, outcome_id)
+  
+  splitModelInfo <- split(groupedModelInfo, list(groupedModelInfo$target_id, groupedModelInfo$outcome_id), drop = TRUE)
+  
+  designs <- list()
+  for (i in seq_along(splitModelInfo)) {
+    df <- splitModelInfo[[i]]
     
-    # ensure model is not a deep learning model
-    modelAttributes <- tryCatch(
-      {jsonlite::fromJSON(file.path(modelLocation, "attributes.json"))},
-      error = function(e){ParallelLogger::logInfo(e); return(NULL)}
-    )
-    
-    if (!is.null(modelAttributes)) {
-      if (modelAttributes$predictionFunction != "predictDeepEstimator") {
-        
-        plpModel <- tryCatch(
-          {PatientLevelPrediction::loadPlpModel(modelLocation)},
-          error = function(e){ParallelLogger::logInfo(e); return(NULL)}
-        )
-        
-        if(!is.null(plpModel)){
-          
-          # append model ind to ensure analysis id is unique
-          plpModel$trainDetails$analysisId <- paste0(plpModel$trainDetails$analysisId, '_', modelInd)
-          
-          # update the plpModel cohort covariates to replace the schema and cohortTable
-          # cohortDatabaseSchema, cohortTable
-          plpModel <- updateCovariates(
-            plpModel = plpModel,
-            cohortTable = jobContext$moduleExecutionSettings$cohortTableNames$cohortTable, 
-            cohortDatabaseSchema = jobContext$moduleExecutionSettings$workDatabaseSchema
-          )
-          
-          # create the database details:
-          databaseDetails <- list()
-          for(ddind in 1:length(jobContext$settings)){
-            
-            tid <- jobContext$settings[[ddind]]$targetId
-            oid <- jobContext$settings[[ddind]]$outcomeId
-            
-            # why not just use database name?
-            databaseNames <- c(databaseNames, paste0(jobContext$moduleExecutionSettings$connectionDetailsReference,'_T',tid,'_O',oid ))
-            
-            databaseDetails[[ddind]] <- PatientLevelPrediction::createDatabaseDetails(
-              connectionDetails = jobContext$moduleExecutionSettings$connectionDetails, 
-              cdmDatabaseSchema = jobContext$moduleExecutionSettings$cdmDatabaseSchema,
-              cohortDatabaseSchema = jobContext$moduleExecutionSettings$workDatabaseSchema,
-              cdmDatabaseName = paste0(jobContext$moduleExecutionSettings$connectionDetailsReference,'_T',tid,'_O',oid ),
-              cdmDatabaseId = jobContext$moduleExecutionSettings$databaseId,
-              #tempEmulationSchema =  , is there s temp schema specified anywhere?
-              cohortTable = jobContext$moduleExecutionSettings$cohortTableNames$cohortTable, 
-              outcomeDatabaseSchema = jobContext$moduleExecutionSettings$workDatabaseSchema, 
-              outcomeTable = jobContext$moduleExecutionSettings$cohortTableNames$cohortTable, 
-              targetId = tid,
-              outcomeIds = oid
-            )
-          }
-          
-          if(!is.null(jobContext$settings[[ddind]]$populationSettings)){
-            ParallelLogger::logInfo('Updating population settings')
-            plpModel$modelDesign$populationSettings <- jobContext$settings[[ddind]]$populationSettings
-          } else{
-            ParallelLogger::logInfo('Using model population settings')
-          }
-          
-          PatientLevelPrediction::externalValidateDbPlp(
-            plpModel = plpModel, 
-            validationDatabaseDetails = databaseDetails, 
-            validationRestrictPlpDataSettings = jobContext$settings[[ddind]]$restrictPlpDataSettings, 
-            settings = jobContext$settings[[ddind]]$validationSettings, 
-            #logSettings = , 
-            outputFolder = workFolder
-          )
-          
-        } else{
-          ParallelLogger::logInfo(paste0('Issue loading model at ', modelLocation))
-        }
-      }
+    modelObjects <- list()
+    for (modelDir in df$plp_model_file) {
+      modelPath <- modelDir
+      plpModel <- PatientLevelPrediction::loadPlpModel(modelPath)
+      modelObjects <- c(modelObjects, list(plpModel))
     }
+    
+    design <- PatientLevelPrediction::createValidationDesign(
+      targetId = df$target_id[1],
+      outcomeId = df$outcome_id[1],
+      populationSettings = PatientLevelPrediction:::createStudyPopulationSettings(),
+      restrictPlpDataSettings = PatientLevelPrediction::createRestrictPlpDataSettings(),
+      plpModelList = modelObjects
+    )
+    designs[[i]] <- design  # Adding elements to a list
   }
   
-  # save results into sqlite
-  # move results into database
-  for(databaseName in unique(databaseNames)){
-    tryCatch({
-      PatientLevelPrediction::insertResultsToSqlite(
-        resultLocation = file.path(workFolder, databaseName), 
-        cohortDefinitions = cohortDefinitionSet,
-        #databaseList = PatientLevelPrediction::createDatabaseList(
-        #  cdmDatabaseSchemas = validationDatabaseDetail$cdmDatabaseSchema,
-        #  cdmDatabaseNames = validationDatabaseDetail$cdmDatabaseName,
-        #  databaseRefIds = validationDatabaseDetail$cdmDatabaseId 
-        #),
-        sqliteLocation = file.path(workFolder,'sqlite')
-      )
-    })
-  }
-
-  # Export the results
-  rlang::inform("Export data to csv files")
-
+  databaseDetails <- list()
+  databaseNames <- c()
+  databaseNames <- c(databaseNames, paste0(jobContext$moduleExecutionSettings$connectionDetailsReference))
+  
+  databaseDetails <- PatientLevelPrediction::createDatabaseDetails(
+    connectionDetails = jobContext$moduleExecutionSettings$connectionDetails,
+    cdmDatabaseSchema = jobContext$moduleExecutionSettings$cdmDatabaseSchema,
+    cohortDatabaseSchema = jobContext$moduleExecutionSettings$workDatabaseSchema,
+    cdmDatabaseName = paste0(jobContext$moduleExecutionSettings$connectionDetailsReference),
+    cdmDatabaseId = jobContext$moduleExecutionSettings$databaseId,
+    #tempEmulationSchema =  , is there s temp schema specified anywhere?
+    cohortTable = jobContext$moduleExecutionSettings$cohortTableNames$cohortTable,
+    outcomeDatabaseSchema = jobContext$moduleExecutionSettings$workDatabaseSchema,
+    outcomeTable = jobContext$moduleExecutionSettings$cohortTableNames$cohortTable
+  )
+  
+  PatientLevelPrediction::validateExternal(
+    validationDesignList = designs,
+    databaseDetails = databaseDetails,
+    logSettings = PatientLevelPrediction::createLogSettings(verbosity = 'INFO', logName = 'validatePLP'),
+    outputFolder = workFolder
+  )
+  
   sqliteConnectionDetails <- DatabaseConnector::createConnectionDetails(
     dbms = 'sqlite',
-    server = file.path(workFolder, "sqlite","databaseFile.sqlite")
+    server = file.path(workFolder, "sqlite", "databaseFile.sqlite")
   )
-    
+  
   PatientLevelPrediction::extractDatabaseToCsv(
     connectionDetails = sqliteConnectionDetails, 
     databaseSchemaSettings = PatientLevelPrediction::createDatabaseSchemaSettings(
@@ -274,13 +275,4 @@ execute <- function(jobContext) {
     csvFolder = resultsFolder,
     fileAppend = NULL
   )
-  
-  # Zip the results
-  rlang::inform("Zipping csv files")
-  DatabaseConnector::createZipFile(
-    zipFile = file.path(resultsFolder, 'results.zip'),
-    files = file.path(workFolder, 'results')
-  )
-  
-  
 }
