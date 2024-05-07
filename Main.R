@@ -219,19 +219,12 @@ execute <- function(jobContext) {
   for (i in seq_along(splitModelInfo)) {
     df <- splitModelInfo[[i]]
     
-    modelObjects <- list()
-    for (modelDir in df$plp_model_file) {
-      modelPath <- modelDir
-      plpModel <- PatientLevelPrediction::loadPlpModel(modelPath)
-      modelObjects <- c(modelObjects, list(plpModel))
-    }
-    
     design <- PatientLevelPrediction::createValidationDesign(
       targetId = df$target_id[1],
       outcomeId = df$outcome_id[1],
       populationSettings = PatientLevelPrediction:::createStudyPopulationSettings(),
       restrictPlpDataSettings = PatientLevelPrediction::createRestrictPlpDataSettings(),
-      plpModelList = modelObjects
+      plpModelList = as.list(df$plp_model_file)
     )
     designs[[i]] <- design  # Adding elements to a list
   }
