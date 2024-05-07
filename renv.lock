@@ -130,15 +130,14 @@
       "Package": "PatientLevelPrediction",
       "Version": "6.3.8",
       "Source": "GitHub",
-      "Remotes": "ohdsi/BigKnn, ohdsi/ShinyAppBuilder, ohdsi/ResultModelManager,",
+      "Remotes": "ohdsi/BigKnn, ohdsi/ShinyAppBuilder, ohdsi/ResultModelManager",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
       "RemoteRepo": "PatientLevelPrediction",
       "RemoteUsername": "ohdsi",
-      "RemoteRef": "HEAD",
-      "RemoteSha": "d402935a23e624d161c15baf085374fa0043b136",
-      "Requirements": [],
-      "Hash": "f5f836b9a17fa6ce42fc1a98b6621cf8"
+      "RemoteRef": "develop",
+      "RemoteSha": null,
+      "Requirements": []
     },
     "R6": {
       "Package": "R6",
