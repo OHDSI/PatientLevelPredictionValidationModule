@@ -145,7 +145,7 @@ execute <- function(jobContext) {
   modelInfo <- getModelInfo(modelSaveLocation)
   
   designs <- list()
-  for (i in seq_along(nrow(modelInfo))) {
+  for (i in seq_along(modelInfo)) {
     df <- modelInfo[i, ]
     
     design <- PatientLevelPrediction::createValidationDesign(
