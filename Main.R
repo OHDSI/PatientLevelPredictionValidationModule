@@ -151,8 +151,6 @@ execute <- function(jobContext) {
     design <- PatientLevelPrediction::createValidationDesign(
       targetId = df$target_id[1],
       outcomeId = df$outcome_id[1],
-      populationSettings = PatientLevelPrediction:::createStudyPopulationSettings(),
-      restrictPlpDataSettings = PatientLevelPrediction::createRestrictPlpDataSettings(),
       plpModelList = as.list(df$modelPath)
     )
     designs[[i]] <- design 
