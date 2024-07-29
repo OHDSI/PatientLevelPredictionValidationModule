@@ -78,18 +78,24 @@ getModelInfo <- function(strategusOutputPath) {
       databaseMetaDataPath <- file.path(directoryPath, "database_meta_data.csv")
       modelDesign <- file.path(directoryPath, "model_designs.csv")
       cohorts <- file.path(directoryPath, "cohorts.csv")
+      populationSettingsPath <- file.path(directoryPath, "population_settings.csv")
+      plpDataSettingsPath <- file.path(directoryPath, "plp_data_settings.csv")
       
       modelData <- read.csv(modelFilePath)
       databaseDetails <- read.csv(databaseDetailsPath)
       databaseMetaData <- read.csv(databaseMetaDataPath)
       modelDesign <- read.csv(modelDesign)
       cohorts <- read.csv(cohorts)
+      populationSettings <- read.csv(populationSettingsPath)
+      plpDataSettings <- read.csv(plpDataSettingsPath)
       
       modelData$plp_model_file <- file.path(directoryPath, "models", basename(modelData$plp_model_file))
-      
+
       enrichedData <- merge(modelData, databaseDetails, by = "database_id")
       finalModelData <- merge(enrichedData, databaseMetaData, by.y = "database_id", by.x = "database_meta_data_id")
       finalModelData <- merge(finalModelData, modelDesign, by = "model_design_id")
+      finalModelData <- merge(finalModelData, populationSettings, by = "population_settings_id")
+      finalModelData <- merge(finalModelData, plpDataSettings, by = "plp_data_settings_id")
       finalModelData <- merge(finalModelData, cohorts, by.x = "outcome_id", by.y = "cohort_id")
       finalModelData <- within(finalModelData, {
         outcome_id <- cohort_definition_id
@@ -109,7 +115,8 @@ getModelInfo <- function(strategusOutputPath) {
     }
   }
   finalSelectedData <- combinedData %>%
-    select(cdm_source_abbreviation, analysis_id, model_design_id, model_type, target_id, outcome_id, plp_model_file)
+    select(cdm_source_abbreviation, analysis_id, model_design_id, model_type, target_id, outcome_id, plp_model_file,
+           plp_data_settings_json, population_settings_json)
 }
 
 getSharedResourceByClassName <- function(sharedResources, className) {
@@ -222,8 +229,8 @@ execute <- function(jobContext) {
     design <- PatientLevelPrediction::createValidationDesign(
       targetId = df$target_id[1],
       outcomeId = df$outcome_id[1],
-      populationSettings = PatientLevelPrediction:::createStudyPopulationSettings(),
-      restrictPlpDataSettings = PatientLevelPrediction::createRestrictPlpDataSettings(),
+      populationSettings = NULL, # use setting from model
+      restrictPlpDataSettings = NULL, # use setting from model
       plpModelList = as.list(df$plp_model_file)
     )
     designs[[i]] <- design  # Adding elements to a list
