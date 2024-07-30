@@ -81,13 +81,13 @@ getModelInfo <- function(strategusOutputPath) {
       populationSettingsPath <- file.path(directoryPath, "population_settings.csv")
       plpDataSettingsPath <- file.path(directoryPath, "plp_data_settings.csv")
       
-      modelData <- read.csv(modelFilePath)
-      databaseDetails <- read.csv(databaseDetailsPath)
-      databaseMetaData <- read.csv(databaseMetaDataPath)
-      modelDesign <- read.csv(modelDesign)
-      cohorts <- read.csv(cohorts)
-      populationSettings <- read.csv(populationSettingsPath)
-      plpDataSettings <- read.csv(plpDataSettingsPath)
+      modelData <- readr::read_csv(modelFilePath, show_col_types=FALSE)
+      databaseDetails <- readr::read_csv(databaseDetailsPath, show_col_types=FALSE)
+      databaseMetaData <- readr::read_csv(databaseMetaDataPath, show_col_types=FALSE)
+      modelDesign <- readr::read_csv(modelDesign, show_col_types=FALSE)
+      cohorts <- readr::read_csv(cohorts, show_col_types=FALSE)
+      populationSettings <- readr::read_csv(populationSettingsPath, show_col_types=FALSE)
+      plpDataSettings <- readr::read_csv(plpDataSettingsPath, show_col_types=FALSE)
       
       modelData$plp_model_file <- file.path(directoryPath, "models", basename(modelData$plp_model_file))
 
