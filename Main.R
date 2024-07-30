@@ -94,8 +94,8 @@ getModelInfo <- function(strategusOutputPath) {
       enrichedData <- merge(modelData, databaseDetails, by = "database_id")
       finalModelData <- merge(enrichedData, databaseMetaData, by.y = "database_id", by.x = "database_meta_data_id")
       finalModelData <- merge(finalModelData, modelDesign, by = "model_design_id")
-      finalModelData <- merge(finalModelData, populationSettings, by = "population_settings_id")
-      finalModelData <- merge(finalModelData, plpDataSettings, by = "plp_data_settings_id")
+      finalModelData <- merge(finalModelData, populationSettings, by = "population_setting_id")
+      finalModelData <- merge(finalModelData, plpDataSettings, by = "plp_data_setting_id")
       finalModelData <- merge(finalModelData, cohorts, by.x = "outcome_id", by.y = "cohort_id")
       finalModelData <- within(finalModelData, {
         outcome_id <- cohort_definition_id
