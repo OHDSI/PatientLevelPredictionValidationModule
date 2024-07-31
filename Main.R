@@ -153,7 +153,7 @@ execute <- function(jobContext) {
       outcomeId = df$outcome_id[1],
       plpModelList = as.list(df$modelPath),
       restrictPlpDataSettings = jobContext$settings[[1]]$restrictPlpDataSettings,
-      populationSettings = jobContext$settings[[1]]$populationSettings)
+      populationSettings = jobContext$settings[[1]]$populationSettings
     )
     designs[[i]] <- design 
   }
