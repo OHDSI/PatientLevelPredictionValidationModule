@@ -307,14 +307,14 @@
     },
     "PatientLevelPrediction": {
       "Package": "PatientLevelPrediction",
-      "Version": "6.3.8",
+      "Version": "6.3.8.9999",
       "Source": "GitHub",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
-      "RemoteUsername": "OHDSI",
+      "RemoteUsername": "ohdsi",
       "RemoteRepo": "PatientLevelPrediction",
-      "RemoteRef": "cohort_covariates",
-      "RemoteSha": "8601d4eac833485242dd0087b00286a09ce34f9e"
+      "RemoteRef": "develop",
+      "RemoteSha": "7acfb94342d3d0aecf893bbac8a0bf3dc2d1679b"
     },
     "PheValuator": {
       "Package": "PheValuator",
