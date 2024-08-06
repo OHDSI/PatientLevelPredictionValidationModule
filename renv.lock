@@ -313,8 +313,8 @@
       "RemoteHost": "api.github.com",
       "RemoteUsername": "ohdsi",
       "RemoteRepo": "PatientLevelPrediction",
-      "RemoteRef": "develop",
-      "RemoteSha": "c48f42c5c1ba78388a1639d4784db2e3e040342a"
+      "RemoteRef": "validate_external_improvements",
+      "RemoteSha": "398ebb272a2b8a06be4786dbfc65519c67d8d255"
     },
     "PheValuator": {
       "Package": "PheValuator",

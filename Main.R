@@ -155,7 +155,7 @@ execute <- function(jobContext) {
       restrictPlpDataSettings = jobContext$settings[[1]]$restrictPlpDataSettings,
       populationSettings = jobContext$settings[[1]]$populationSettings
     )
-    designs[[i]] <- design 
+    designs <- c(designs, design)
   }
   databaseNames <- c()
   databaseNames <- c(databaseNames, paste0(jobContext$moduleExecutionSettings$connectionDetailsReference))
