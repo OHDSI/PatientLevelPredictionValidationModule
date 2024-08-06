@@ -314,7 +314,7 @@
       "RemoteUsername": "ohdsi",
       "RemoteRepo": "PatientLevelPrediction",
       "RemoteRef": "develop",
-      "RemoteSha": "7acfb94342d3d0aecf893bbac8a0bf3dc2d1679b"
+      "RemoteSha": "c48f42c5c1ba78388a1639d4784db2e3e040342a"
     },
     "PheValuator": {
       "Package": "PheValuator",
