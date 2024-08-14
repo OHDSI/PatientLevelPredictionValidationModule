@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 PatientLevelPredictionValidationModule <- R6::R6Class(
   classname = "PatientLevelPredictionValidationModule",
   inherit = Strategus::StrategusModule,
@@ -39,7 +40,7 @@ PatientLevelPredictionValidationModule <- R6::R6Class(
 
       # hack to use output folder for model transfer
       modelSaveLocation <- file.path(upperResultDir, modelTransferFolder, "models")
-      modelInfo <- getModelInfo(modelSaveLocation)
+      modelInfo <- private$getModelInfo(modelSaveLocation)
 
       designs <- list()
       for (i in seq_len(nrow(modelInfo))) {
