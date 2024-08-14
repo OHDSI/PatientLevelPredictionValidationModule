@@ -42,8 +42,8 @@ getModelInfo <- function(strategusOutputPath) {
     }
   }
   
-  models <- model |>
-    dplyr::group_by(.data$target_id, .data$outcome_id) |>
+  models <- model %>%
+    dplyr::group_by(.data$target_id, .data$outcome_id) %>%
     dplyr::summarise(modelPath = list(.data$modelPath), .groups = "drop")
   return(models)
 }
