@@ -12,8 +12,14 @@
 
 #' Create specifications for the PatientLevelPredictionValidationModule
 #'
-#' @param validationComponentList a list of the components neccesary for the validationDesigns
+#' @param validationComponentList a list of the components necessary for the validationDesigns
 #' to be created. Each component in the list is a list with the following list items:
+#' - targetId: the targetId of the target cohort
+#' - outcomeId: the outcomeId of the outcome cohort
+#' - modelTargetId: the targetId of the model to which will be used in this validationDesign, used to 
+#' match the model to the design
+#' - modelOutcomeId: the outcomeId of the model to which will be used in this validationDesign, used to
+#' match the model to the design
 #' - restrictPlpDataSettings: created with `PatientLevelPrediction::createRestrictPlpDataSettings` or 
 #' a list of such objects
 #' - populationSettings: created with `PatientLevelPrediction::createStudyPopulationSettings` or a list
@@ -28,12 +34,20 @@
 createPatientLevelPredictionValidationModuleSpecifications <- function(
     validationComponentsList = list(
       list(
+        targetId = 1,
+        outcomeId = 2,
+        modelTargetId = 1,
+        modelOutcomeId = 2,
         restrictPlpDataSettings = PatientLevelPrediction::createRestrictPlpDataSettings(), 
         populationSettings = PatientLevelPrediction::createStudyPopulationSettings(),
         recalibrate = "weakRecalibration",
         runCovariateSummary = TRUE
       ), 
       list(
+        targetId = 1,
+        outcomeId = 3,
+        modelTargetId = 1,
+        modelOutcomeId = 3,
         restrictPlpDataSettings = PatientLevelPrediction::createRestrictPlpDataSettings(),
         populationSettings = PatientLevelPrediction::createStudyPopulationSettings(),    
         recalibrate = "calibrationInTheLarge",
